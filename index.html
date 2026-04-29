@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2026 今彩539進階統計分析系統</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap');
+:root {
+  --bg:#09111f; --bg2:#0f1b2d; --bg3:#162235; --card:#0d1829;
+  --border:#1b2d45; --accent:#22d3ee; --accent2:#a78bfa; --accent3:#34d399;
+  --gold:#fbbf24; --red:#f87171; --green:#34d399; --text:#e2e8f0;
+  --text2:#94a3b8; --text3:#4a6280; --hot:#fb923c; --cold:#60a5fa;
+  --radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* HEADER */
+.header{
+  background:linear-gradient(135deg,#060e1b 0%,#0d1a35 50%,#060e1b 100%);
+  border-bottom:1px solid var(--border);padding:18px 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:100;
+}
+.hdr-left{display:flex;align-items:center;gap:14px;}
+.hdr-logo{width:42px;height:42px;background:linear-gradient(135deg,#22d3ee,#a78bfa);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;}
+.hdr-title{font-size:20px;font-weight:700;background:linear-gradient(90deg,#22d3ee,#a78bfa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hdr-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.hdr-right{display:flex;align-items:center;gap:12px;}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+.status-txt{font-size:12px;color:var(--text2);}
+
+/* CONTAINER */
+.container{max-width:1400px;margin:0 auto;padding:28px 24px;}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;}
+.card-title{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;
+  color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px;}
+.card-title .icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;font-size:14px;}
+
+/* GRIDS */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+.gap-20{margin-bottom:20px;}
+.gap-24{margin-bottom:24px;}
+
+/* ALERT */
+.alert{background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.22);
+  border-radius:8px;padding:10px 16px;font-size:12.5px;color:#fcd34d;margin-bottom:20px;}
+
+/* BALLS */
+.ball{display:inline-flex;align-items:center;justify-content:center;
+  width:36px;height:36px;border-radius:50%;font-weight:700;font-size:14px;
+  font-family:'JetBrains Mono',monospace;flex-shrink:0;}
+.ball-blue{background:radial-gradient(circle at 35% 35%,#60a5fa,#2563eb);
+  box-shadow:0 2px 8px rgba(37,99,235,.5);color:#fff;}
+.ball-sm{width:28px;height:28px;font-size:11px;}
+.ball-hot{background:radial-gradient(circle at 35% 35%,#fb923c,#ea580c);
+  box-shadow:0 2px 6px rgba(234,88,12,.4);color:#fff;}
+.ball-cold{background:radial-gradient(circle at 35% 35%,#60a5fa,#3b82f6);
+  box-shadow:0 2px 6px rgba(59,130,246,.4);color:#fff;}
+.ball-normal{background:radial-gradient(circle at 35% 35%,#475569,#1e293b);color:#94a3b8;}
+
+/* LATEST DRAW */
+.latest-card{background:linear-gradient(135deg,#0d1f38,#0f1a30);
+  border:1px solid #1d3252;}
+.latest-numbers{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+.latest-info{display:flex;gap:16px;flex-wrap:wrap;}
+.info-chip{background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:6px 14px;font-size:12px;color:var(--text2);}
+.info-chip span{color:var(--accent);font-weight:600;}
+
+/* STAT CARDS */
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px;text-align:center;}
+.stat-val{font-size:26px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.stat-label{font-size:11px;color:var(--text3);margin-top:4px;}
+.stat-sub{font-size:11px;color:var(--text2);margin-top:2px;}
+
+/* TABS */
+.tabs{display:flex;gap:4px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;padding:5px;margin-bottom:20px;flex-wrap:wrap;}
+.tab{padding:8px 16px;border-radius:7px;font-size:13px;font-weight:500;
+  cursor:pointer;border:none;background:transparent;color:var(--text2);
+  transition:all .2s;}
+.tab:hover{color:var(--text);background:var(--bg3);}
+.tab.active{background:linear-gradient(135deg,rgba(34,211,238,.15),rgba(167,139,250,.15));
+  color:var(--accent);border:1px solid rgba(34,211,238,.25);}
+
+/* TAB PANELS */
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+
+/* FREQUENCY GRID */
+.freq-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;}
+.freq-item{background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+  padding:10px 6px;text-align:center;cursor:default;transition:transform .15s;}
+.freq-item:hover{transform:translateY(-2px);}
+.freq-num{font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.freq-count{font-size:10px;color:var(--text3);margin-top:3px;}
+.freq-bar-wrap{height:3px;background:var(--bg3);border-radius:2px;margin-top:5px;}
+.freq-bar{height:100%;border-radius:2px;background:var(--accent2);}
+.freq-hot .freq-num{color:var(--hot);}
+.freq-hot{background:rgba(251,146,60,.06);border-color:rgba(251,146,60,.2);}
+.freq-cold .freq-num{color:var(--cold);}
+.freq-cold{background:rgba(96,165,250,.06);border-color:rgba(96,165,250,.2);}
+
+/* MISSING TABLE */
+.missing-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;}
+.miss-item{background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+  padding:10px 6px;text-align:center;}
+.miss-num{font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text);}
+.miss-val{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;margin:3px 0;}
+.miss-max{font-size:10px;color:var(--text3);}
+.miss-high .miss-val{color:var(--red);}
+.miss-high{background:rgba(248,113,113,.07);border-color:rgba(248,113,113,.25);}
+.miss-med .miss-val{color:var(--gold);}
+.miss-med{background:rgba(251,191,36,.06);border-color:rgba(251,191,36,.2);}
+
+/* STREAK */
+.streak-row{display:flex;align-items:center;gap:12px;padding:8px 0;
+  border-bottom:1px solid rgba(27,45,69,.6);}
+.streak-rank{width:24px;font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace;}
+.streak-info{flex:1;}
+.streak-name{font-size:13px;font-weight:600;}
+.streak-detail{font-size:11px;color:var(--text2);margin-top:2px;}
+.streak-badge{padding:2px 10px;border-radius:10px;font-size:11px;font-weight:600;}
+.badge-hot{background:rgba(251,146,60,.15);color:var(--hot);}
+.badge-active{background:rgba(52,211,153,.15);color:var(--green);}
+
+/* ZONES */
+.zone-bar-wrap{background:var(--bg3);border-radius:4px;height:8px;flex:1;}
+.zone-bar{height:100%;border-radius:4px;background:var(--accent2);}
+.zone-row{display:flex;align-items:center;gap:12px;padding:8px 0;
+  border-bottom:1px solid rgba(27,45,69,.5);}
+.zone-label{font-size:13px;font-weight:600;width:70px;color:var(--accent);}
+.zone-pct{font-size:13px;font-weight:700;width:48px;text-align:right;
+  font-family:'JetBrains Mono',monospace;}
+
+/* SUM */
+.sum-badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600;}
+.sum-high{background:rgba(248,113,113,.15);color:var(--red);}
+.sum-med{background:rgba(52,211,153,.15);color:var(--green);}
+.sum-low{background:rgba(96,165,250,.15);color:var(--cold);}
+
+/* SUGGESTION */
+.sug-group{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;}
+.sug-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.sug-label{font-size:12px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:6px;}
+.sug-tag{padding:2px 9px;border-radius:6px;font-size:10px;font-weight:700;}
+.tag-hot{background:rgba(251,146,60,.15);color:var(--hot);}
+.tag-miss{background:rgba(248,113,113,.15);color:var(--red);}
+.tag-balance{background:rgba(34,211,238,.15);color:var(--accent);}
+.tag-oe{background:rgba(167,139,250,.15);color:var(--accent2);}
+.tag-stat{background:rgba(52,211,153,.15);color:var(--green);}
+.sug-balls{display:flex;gap:8px;flex-wrap:wrap;}
+
+/* HISTORY */
+.hist-table{width:100%;border-collapse:collapse;}
+.hist-table th{font-size:11px;color:var(--text3);text-transform:uppercase;
+  letter-spacing:.06em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);}
+.hist-table td{padding:8px 12px;border-bottom:1px solid rgba(27,45,69,.4);font-size:13px;}
+.hist-table tr:hover td{background:rgba(255,255,255,.02);}
+.hist-period{font-family:'JetBrains Mono',monospace;color:var(--text2);}
+.hist-date{color:var(--text3);}
+.hist-balls{display:flex;gap:6px;}
+
+/* REGENERATE BTN */
+.regen-btn{background:linear-gradient(135deg,rgba(34,211,238,.15),rgba(167,139,250,.15));
+  border:1px solid rgba(34,211,238,.3);color:var(--accent);border-radius:8px;
+  padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;gap:8px;}
+.regen-btn:hover{background:linear-gradient(135deg,rgba(34,211,238,.25),rgba(167,139,250,.25));
+  transform:translateY(-1px);}
+
+/* CHART containers */
+.chart-wrap{position:relative;height:220px;}
+
+/* LOADING */
+.loading{display:flex;align-items:center;justify-content:center;gap:12px;
+  padding:80px 20px;color:var(--text2);}
+.spinner{width:24px;height:24px;border:2px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* TOP LIST */
+.top-list{display:flex;flex-direction:column;gap:6px;}
+.top-row{display:flex;align-items:center;gap:10px;padding:6px 0;}
+.top-rank{width:22px;font-size:11px;color:var(--text3);text-align:center;}
+.top-bar-w{flex:1;height:6px;background:var(--bg3);border-radius:3px;}
+.top-bar-f{height:100%;border-radius:3px;}
+
+/* TWO COL LAYOUT */
+.col-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+
+@media(max-width:1100px){.freq-grid{grid-template-columns:repeat(6,1fr);}.missing-grid{grid-template-columns:repeat(6,1fr);}}
+@media(max-width:800px){.grid-2,.col-layout{grid-template-columns:1fr;}.freq-grid{grid-template-columns:repeat(5,1fr);}.missing-grid{grid-template-columns:repeat(5,1fr);}.grid-4{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:500px){.freq-grid,.missing-grid{grid-template-columns:repeat(4,1fr);}.tabs{gap:2px;}.tab{padding:6px 10px;font-size:12px;}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="hdr-left">
+    <div class="hdr-logo">🍀</div>
+    <div>
+      <div class="hdr-title">2026 今彩539進階統計分析系統</div>
+      <div class="hdr-sub">539 Advanced Statistical Analysis · Taiwan Lottery</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="dot" id="statusDot"></div>
+    <span class="status-txt" id="statusText">載入中...</span>
+  </div>
+</div>
+
+<div class="container">
+
+    <div id="loadingState" class="loading">
+      <div class="spinner"></div>
+      <span>正在從 Google Sheets 載入開獎資料...</span>
+    </div>
+
+  <div id="mainContent" style="display:none">
+
+    <div class="alert gap-20">⚠️ 本系統統計資料僅供娛樂參考，彩票開獎屬機率事件，請理性購買，量力而為。</div>
+
+    <!-- Latest + Stats -->
+    <div class="grid-2 gap-24">
+      <div class="card latest-card">
+        <div class="card-title">
+          <div class="icon" style="background:rgba(34,211,238,.12);">🎯</div>
+          最新開獎號碼
+          <span style="margin-left:auto;font-size:12px;font-weight:400;" id="latestPeriod"></span>
+        </div>
+        <div class="latest-numbers" id="latestNumbers"></div>
+        <div class="latest-info" id="latestInfo"></div>
+      </div>
+      <div>
+        <div class="grid-4" id="quickStats"></div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" id="tabs">
+      <button class="tab active" onclick="switchTab('freq',this)">📊 頻率統計</button>
+      <button class="tab" onclick="switchTab('missing',this)">⏳ 遺漏值</button>
+      <button class="tab" onclick="switchTab('streak',this)">🔥 連莊</button>
+      <button class="tab" onclick="switchTab('zone',this)">📐 斷區</button>
+      <button class="tab" onclick="switchTab('sum',this)">➕ 和值</button>
+      <button class="tab" onclick="switchTab('oe',this)">⚖️ 奇偶比</button>
+      <button class="tab" onclick="switchTab('headtail',this)">🔢 頭尾數</button>
+      <button class="tab" onclick="switchTab('suggest',this)">💡 建議號碼</button>
+    </div>
+
+    <!-- FREQUENCY TAB -->
+    <div class="tab-panel active" id="panel-freq">
+      <div class="col-layout gap-24">
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(251,146,60,.12)">🔥</div>熱門號碼 TOP 10</div>
+          <div class="top-list" id="hotList"></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(96,165,250,.12)">❄️</div>冷門號碼 TOP 10</div>
+          <div class="top-list" id="coldList"></div>
+        </div>
+      </div>
+      <div class="card gap-24">
+        <div class="card-title"><div class="icon" style="background:rgba(167,139,250,.12)">📊</div>號碼出現頻率 (全39球)</div>
+        <div class="freq-grid" id="freqGrid"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="icon" style="background:rgba(34,211,238,.12)">📈</div>熱門號碼走勢（近30期）</div>
+        <div class="chart-wrap"><canvas id="freqChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- MISSING TAB -->
+    <div class="tab-panel" id="panel-missing">
+      <div class="col-layout gap-24">
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(248,113,113,.12)">🚨</div>高遺漏號碼排行</div>
+          <div class="top-list" id="missList"></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(52,211,153,.12)">📋</div>遺漏值說明</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.8;">
+            <p>• <strong style="color:var(--text)">遺漏值</strong>：該號碼距上次開出的期數</p>
+            <p>• <strong style="color:var(--red)">紅色數字</strong>：遺漏值 ≥ 歷史最大遺漏值的 70%</p>
+            <p>• <strong style="color:var(--gold)">黃色數字</strong>：遺漏值 ≥ 歷史最大遺漏值的 40%</p>
+            <p style="margin-top:10px;color:var(--text3);">遺漏值高不代表即將開出，僅供統計參考。</p>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="icon" style="background:rgba(251,191,36,.12)">⏳</div>全號碼遺漏值一覽</div>
+        <div class="missing-grid" id="missingGrid"></div>
+      </div>
+    </div>
+
+    <!-- STREAK TAB -->
+    <div class="tab-panel" id="panel-streak">
+      <div class="col-layout gap-24">
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(251,146,60,.12)">🔥</div>歷史最長連莊 TOP 10</div>
+          <div id="streakList"></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(52,211,153,.12)">✅</div>當前連莊中號碼</div>
+          <div id="activeStreak"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="icon" style="background:rgba(34,211,238,.12)">📊</div>近30期 連續出現次數分布</div>
+        <div class="chart-wrap"><canvas id="streakChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ZONE TAB -->
+    <div class="tab-panel" id="panel-zone">
+      <div class="grid-2 gap-24">
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(167,139,250,.12)">📐</div>號碼區間分布</div>
+          <div id="zoneList"></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(34,211,238,.12)">📏</div>開獎號碼跨度統計</div>
+          <div id="spanStats"></div>
+          <div class="chart-wrap" style="height:180px;margin-top:14px;"><canvas id="spanChart"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="icon" style="background:rgba(251,191,36,.12)">📈</div>近30期 各區間出現趨勢</div>
+        <div class="chart-wrap"><canvas id="zoneChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- SUM TAB -->
+    <div class="tab-panel" id="panel-sum">
+      <div class="grid-4 gap-24" id="sumStats"></div>
+      <div class="col-layout gap-24">
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(34,211,238,.12)">📈</div>近30期 和值走勢</div>
+          <div class="chart-wrap"><canvas id="sumTrendChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(167,139,250,.12)">📊</div>和值分布區間</div>
+          <div class="chart-wrap"><canvas id="sumDistChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ODD/EVEN TAB -->
+    <div class="tab-panel" id="panel-oe">
+      <div class="grid-4 gap-24" id="oeStats"></div>
+      <div class="col-layout gap-24">
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(34,211,238,.12)">⚖️</div>奇偶比分布</div>
+          <div class="chart-wrap"><canvas id="oeChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(167,139,250,.12)">📊</div>大小比分布（>20 為大）</div>
+          <div class="chart-wrap"><canvas id="bsChart"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="icon" style="background:rgba(251,191,36,.12)">📋</div>近20期 奇偶/大小詳細</div>
+        <div id="oeTable"></div>
+      </div>
+    </div>
+
+    <!-- HEAD/TAIL TAB -->
+    <div class="tab-panel" id="panel-headtail">
+      <div class="col-layout gap-24">
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(34,211,238,.12)">🔟</div>十位數（頭數）分布</div>
+          <div id="headGrid"></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><div class="icon" style="background:rgba(167,139,250,.12)">9️⃣</div>個位數（尾數）分布</div>
+          <div id="tailGrid"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="icon" style="background:rgba(251,191,36,.12)">📈</div>頭尾數分布圖</div>
+        <div class="chart-wrap"><canvas id="headTailChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- SUGGEST TAB -->
+    <div class="tab-panel" id="panel-suggest">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:13px;color:var(--text2);">根據統計分析生成 10 組建議號碼</div>
+        <button class="regen-btn" onclick="regenSuggestions()">🎲 重新生成</button>
+      </div>
+      <div id="suggestList"></div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="card" style="margin-top:24px;">
+      <div class="card-title" style="justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="icon" style="background:rgba(167,139,250,.12);">📋</div>
+          歷史開獎記錄
+        </div>
+        <div style="display:flex;gap:8px;">
+          <select id="histCount" onchange="renderHistory()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 10px;font-size:12px;">
+            <option value="10">近10期</option>
+            <option value="20" selected>近20期</option>
+            <option value="50">近50期</option>
+            <option value="999">全部</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="hist-table"><thead><tr>
+          <th>期號</th><th>開獎日期</th><th>開獎號碼</th><th>和值</th><th>奇偶比</th><th>大小比</th><th>跨度</th>
+        </tr></thead>
+        <tbody id="histBody"></tbody></table>
+      </div>
+    </div>
+
+  </div><!-- end mainContent -->
+</div><!-- end container -->
+
+<script>
+// ===== Google Sheets 設定 =====
+const SPREADSHEET_ID = "1uxgmhB5evE8r3U3HhfSTlrAyzo11Ve7dxdudFUmZ19o";
+const SHEET_NAME     = "06.539號碼";
+
+// 欄位對應（0-based index）：A=期號, B=日期, C~G=號碼1~5
+const COL_PERIOD = 0;
+const COL_DATE   = 1;
+const COL_N1     = 2;
+const COL_N5     = 6; // 最後一個號碼欄
+
+// Google Sheets 公開 CSV 網址
+function sheetCSVUrl() {
+  const encoded = encodeURIComponent(SHEET_NAME);
+  return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encoded}`;
+}
+
+/**
+ * 解析 CSV 文字 → DRAW_DATA 格式
+ * 每列：期號, 日期, 號碼1, 號碼2, 號碼3, 號碼4, 號碼5
+ * 自動跳過標題列（第一欄非數字）
+ */
+function parseCSV(csvText) {
+  const lines = csvText.trim().split('\n');
+  const draws = [];
+
+  for (const line of lines) {
+    // 處理 CSV 引號與逗號
+    const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+
+    const period = parseInt(cols[COL_PERIOD]);
+    if (isNaN(period) || period < 100000) continue; // 跳過標題或空列
+
+    const dateRaw = cols[COL_DATE] || '';
+    // 統一日期格式 yyyy/mm/dd（相容 yyyy-mm-dd 或 yyy/mm/dd）
+    const date = dateRaw.replace(/-/g, '/');
+
+    const nums = [];
+    for (let c = COL_N1; c <= COL_N5; c++) {
+      const n = parseInt(cols[c]);
+      if (isNaN(n) || n < 1 || n > 39) { nums.length = 0; break; }
+      nums.push(n);
+    }
+    if (nums.length !== 5) continue;
+
+    draws.push({ period, date, numbers: nums.sort((a, b) => a - b) });
+  }
+
+  // 由新到舊排序
+  draws.sort((a, b) => b.period - a.period);
+  return draws;
+}
+
+// 全域資料（fetch 後填入）
+let DRAW_DATA = [];
+
+const TOTAL = 39;
+
+// ===== UTILS =====
+function ball(n, size='') {
+  return `<span class="ball ball-blue ${size}">${String(n).padStart(2,'0')}</span>`;
+}
+function ballColored(n, cls, size='') {
+  return `<span class="ball ${cls} ${size}">${String(n).padStart(2,'0')}</span>`;
+}
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function pick(arr, n) { return shuffle(arr).slice(0, n).sort((a,b)=>a-b); }
+function weightedPick(weights, n) {
+  const noise = weights.map((w,i) => ({ i: i+1, w: w + Math.random() * 0.3 }));
+  noise.sort((a,b) => b.w - a.w);
+  return noise.slice(0, n).map(x => x.i).sort((a,b) => a-b);
+}
+
+function drawSum(nums) { return nums.reduce((a,b)=>a+b,0); }
+function drawOdds(nums) { return nums.filter(n=>n%2!==0).length; }
+function drawBig(nums) { return nums.filter(n=>n>20).length; }
+function drawSpan(nums) { return nums[nums.length-1] - nums[0]; }
+
+// ===== COMPUTATIONS =====
+function computeFreq(draws) {
+  const cnt = Array(TOTAL+1).fill(0);
+  draws.forEach(d => d.numbers.forEach(n => cnt[n]++));
+  return cnt;
+}
+
+function computeMissing(draws) {
+  const miss = Array(TOTAL+1).fill(0);
+  const found = Array(TOTAL+1).fill(false);
+  for (let i = 0; i < draws.length; i++) {
+    draws[i].numbers.forEach(n => { found[n] = true; });
+    for (let n = 1; n <= TOTAL; n++) {
+      if (!found[n]) miss[n]++;
+      else found[n] = false;
+    }
+  }
+  // current missing
+  const cur = Array(TOTAL+1).fill(0);
+  for (let n = 1; n <= TOTAL; n++) {
+    let m = 0;
+    for (let i = 0; i < draws.length; i++) {
+      if (draws[i].numbers.includes(n)) break;
+      m++;
+    }
+    cur[n] = m;
+  }
+  return cur;
+}
+
+function computeMaxMissing(draws) {
+  const maxM = Array(TOTAL+1).fill(0);
+  for (let n = 1; n <= TOTAL; n++) {
+    let cur = 0;
+    for (let i = draws.length - 1; i >= 0; i--) {
+      if (draws[i].numbers.includes(n)) { cur = 0; }
+      else { cur++; maxM[n] = Math.max(maxM[n], cur); }
+    }
+  }
+  return maxM;
+}
+
+function computeStreaks(draws) {
+  const result = [];
+  for (let n = 1; n <= TOTAL; n++) {
+    let maxS = 0, curS = 0, activeS = 0;
+    let inActive = false;
+    for (let i = draws.length - 1; i >= 0; i--) {
+      if (draws[i].numbers.includes(n)) {
+        curS++;
+        if (!inActive && i < 5) { activeS = curS; inActive = true; }
+        maxS = Math.max(maxS, curS);
+      } else {
+        if (inActive) inActive = false;
+        curS = 0;
+      }
+    }
+    // check current
+    let activeNow = 0;
+    for (let i = 0; i < draws.length; i++) {
+      if (draws[i].numbers.includes(n)) activeNow++;
+      else break;
+    }
+    result.push({ num: n, maxStreak: maxS, activeStreak: activeNow });
+  }
+  return result;
+}
+
+function computeZones(draws) {
+  // 539: 1-10, 11-20, 21-30, 31-39
+  const zones = [
+    { label: '01-10', min:1, max:10, count:0, total:0 },
+    { label: '11-20', min:11, max:20, count:0, total:0 },
+    { label: '21-30', min:21, max:30, count:0, total:0 },
+    { label: '31-39', min:31, max:39, count:0, total:0 },
+  ];
+  draws.forEach(d => {
+    zones.forEach(z => {
+      const c = d.numbers.filter(n => n >= z.min && n <= z.max).length;
+      z.count += c;
+      if (c > 0) z.total++;
+    });
+  });
+  return zones;
+}
+
+// ===== RENDER =====
+let charts = {};
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function renderLatest(draw) {
+  document.getElementById('latestPeriod').textContent = `第 ${draw.period} 期`;
+  document.getElementById('latestNumbers').innerHTML =
+    draw.numbers.map(n => ball(n)).join('');
+
+  const sum = drawSum(draw.numbers);
+  const odds = drawOdds(draw.numbers);
+  const big = drawBig(draw.numbers);
+  const span = drawSpan(draw.numbers);
+  document.getElementById('latestInfo').innerHTML = [
+    `<div class="info-chip">和值 <span>${sum}</span></div>`,
+    `<div class="info-chip">奇偶比 <span>${odds}:${5-odds}</span></div>`,
+    `<div class="info-chip">大小比 <span>${big}:${5-big}</span></div>`,
+    `<div class="info-chip">跨度 <span>${span}</span></div>`,
+    `<div class="info-chip">日期 <span>${draw.date}</span></div>`,
+  ].join('');
+}
+
+function renderQuickStats(draws, freq) {
+  const sums = draws.map(d => drawSum(d.numbers));
+  const avgSum = (sums.reduce((a,b)=>a+b,0)/sums.length).toFixed(1);
+  const maxF = Math.max(...freq.slice(1));
+  const hotNum = freq.indexOf(maxF);
+  const minF = Math.min(...freq.slice(1).filter(x=>x>0));
+  const coldNum = freq.findIndex((v,i)=>i>0&&v===minF);
+
+  document.getElementById('quickStats').innerHTML = [
+    `<div class="stat-card"><div class="stat-val" style="color:var(--accent)">${draws.length}</div><div class="stat-label">已收錄期數</div><div class="stat-sub">${draws[draws.length-1].period}–${draws[0].period}</div></div>`,
+    `<div class="stat-card"><div class="stat-val" style="color:var(--gold)">${avgSum}</div><div class="stat-label">平均和值</div><div class="stat-sub">理論值 100</div></div>`,
+    `<div class="stat-card"><div class="stat-val" style="color:var(--hot)">${String(hotNum).padStart(2,'0')}</div><div class="stat-label">最熱號碼</div><div class="stat-sub">出現 ${maxF} 次</div></div>`,
+    `<div class="stat-card"><div class="stat-val" style="color:var(--cold)">${String(coldNum).padStart(2,'0')}</div><div class="stat-label">最冷號碼</div><div class="stat-sub">出現 ${minF} 次</div></div>`,
+  ].join('');
+}
+
+function renderFreqTab(freq, draws) {
+  const max = Math.max(...freq.slice(1));
+  const sorted = freq.slice(1).map((c,i)=>({n:i+1,c})).sort((a,b)=>b.c-a.c);
+  const hotThresh = sorted[9].c;
+  const coldThresh = sorted[sorted.length-10].c;
+
+  // Hot list
+  document.getElementById('hotList').innerHTML = sorted.slice(0,10).map((x,i)=>`
+    <div class="top-row">
+      <span class="top-rank">${i+1}</span>
+      ${ballColored(x.n,'ball-hot','ball-sm')}
+      <div class="top-bar-w"><div class="top-bar-f" style="width:${x.c/max*100}%;background:var(--hot);"></div></div>
+      <span style="font-size:12px;color:var(--text2);font-family:'JetBrains Mono',monospace;min-width:28px;text-align:right">${x.c}</span>
+    </div>`).join('');
+
+  // Cold list
+  document.getElementById('coldList').innerHTML = sorted.slice(-10).reverse().map((x,i)=>`
+    <div class="top-row">
+      <span class="top-rank">${i+1}</span>
+      ${ballColored(x.n,'ball-cold','ball-sm')}
+      <div class="top-bar-w"><div class="top-bar-f" style="width:${x.c/max*100}%;background:var(--cold);"></div></div>
+      <span style="font-size:12px;color:var(--text2);font-family:'JetBrains Mono',monospace;min-width:28px;text-align:right">${x.c}</span>
+    </div>`).join('');
+
+  // Freq grid
+  let html = '';
+  for (let n = 1; n <= TOTAL; n++) {
+    const c = freq[n];
+    const cls = c >= hotThresh ? 'freq-hot' : c <= coldThresh ? 'freq-cold' : '';
+    html += `<div class="freq-item ${cls}">
+      <div class="freq-num">${String(n).padStart(2,'0')}</div>
+      <div class="freq-count">${c}次</div>
+      <div class="freq-bar-wrap"><div class="freq-bar" style="width:${c/max*100}%"></div></div>
+    </div>`;
+  }
+  document.getElementById('freqGrid').innerHTML = html;
+
+  // Chart
+  destroyChart('freqChart');
+  const top5 = sorted.slice(0,5).map(x=>x.n);
+  const labels = draws.slice(0,30).reverse().map(d=>d.period);
+  const datasets = top5.map((n,i) => {
+    const colors = ['#fb923c','#60a5fa','#34d399','#a78bfa','#fbbf24'];
+    return {
+      label: `號碼${String(n).padStart(2,'0')}`,
+      data: draws.slice(0,30).reverse().map(d => d.numbers.includes(n) ? 1 : 0),
+      borderColor: colors[i], backgroundColor: colors[i]+'44',
+      tension: 0.3, pointRadius: 3, fill: false
+    };
+  });
+  charts['freqChart'] = new Chart(document.getElementById('freqChart').getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}}},
+      scales:{
+        x:{ticks:{color:'#4a6280',maxTicksLimit:10},grid:{color:'#1b2d45'}},
+        y:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'},min:0,max:1}
+      }
+    }
+  });
+}
+
+function renderMissingTab(miss, maxMiss) {
+  const pairs = Array.from({length:TOTAL},(_,i)=>({n:i+1,m:miss[i+1],max:maxMiss[i+1]}));
+  const sorted = [...pairs].sort((a,b)=>b.m-a.m);
+  const maxM = Math.max(...pairs.map(x=>x.m));
+
+  document.getElementById('missList').innerHTML = sorted.slice(0,10).map((x,i)=>`
+    <div class="top-row">
+      <span class="top-rank">${i+1}</span>
+      ${ballColored(x.n,'ball-normal','ball-sm')}
+      <div class="top-bar-w"><div class="top-bar-f" style="width:${x.m/maxM*100}%;background:${x.m>=x.max*.7?'var(--red)':x.m>=x.max*.4?'var(--gold)':'var(--accent2)'};"></div></div>
+      <span style="font-size:13px;font-family:'JetBrains Mono',monospace;min-width:60px;text-align:right;color:${x.m>=x.max*.7?'var(--red)':x.m>=x.max*.4?'var(--gold)':'var(--text2)'}">${x.m}期 / 最大${x.max}</span>
+    </div>`).join('');
+
+  let html = '';
+  pairs.forEach(x => {
+    const pct = x.max > 0 ? x.m / x.max : 0;
+    const cls = pct >= 0.7 ? 'miss-high' : pct >= 0.4 ? 'miss-med' : '';
+    html += `<div class="miss-item ${cls}">
+      <div class="miss-num">${String(x.n).padStart(2,'0')}</div>
+      <div class="miss-val">${x.m}</div>
+      <div class="miss-max">最大${x.max}</div>
+    </div>`;
+  });
+  document.getElementById('missingGrid').innerHTML = html;
+}
+
+function renderStreakTab(streaks, draws) {
+  const sorted = [...streaks].sort((a,b) => b.maxStreak - a.maxStreak);
+  document.getElementById('streakList').innerHTML = sorted.slice(0,10).map((x,i) => `
+    <div class="streak-row">
+      <span class="streak-rank">${i+1}</span>
+      ${ballColored(x.num,'ball-hot','ball-sm')}
+      <div class="streak-info">
+        <div class="streak-name" style="font-size:13px">號碼 ${String(x.num).padStart(2,'0')}</div>
+        <div class="streak-detail">歷史最長連莊：${x.maxStreak} 期</div>
+      </div>
+      <span class="streak-badge badge-hot">最長 ${x.maxStreak}期</span>
+    </div>`).join('');
+
+  const active = streaks.filter(x => x.activeStreak >= 2).sort((a,b)=>b.activeStreak-a.activeStreak);
+  if (active.length === 0) {
+    document.getElementById('activeStreak').innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px 0">目前無號碼連莊中</div>';
+  } else {
+    document.getElementById('activeStreak').innerHTML = active.map(x => `
+      <div class="streak-row">
+        ${ballColored(x.num,'ball-hot','ball-sm')}
+        <div class="streak-info">
+          <div class="streak-name">號碼 ${String(x.num).padStart(2,'0')}</div>
+          <div class="streak-detail">已連莊 ${x.activeStreak} 期</div>
+        </div>
+        <span class="streak-badge badge-active">🔥 連莊中</span>
+      </div>`).join('');
+  }
+
+  // Chart: per-draw how many numbers consecutive
+  destroyChart('streakChart');
+  const recent30 = draws.slice(0,30).reverse();
+  const data = recent30.map((d,idx) => {
+    if (idx === 0) return 0;
+    return d.numbers.filter(n => recent30[idx-1].numbers.includes(n)).length;
+  });
+  charts['streakChart'] = new Chart(document.getElementById('streakChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: recent30.map(d=>d.period),
+      datasets: [{
+        label: '與前期重複號碼數',
+        data, backgroundColor: '#a78bfa88', borderColor: '#a78bfa', borderWidth: 1
+      }]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#94a3b8'}}},
+      scales:{
+        x:{ticks:{color:'#4a6280',maxTicksLimit:10},grid:{color:'#1b2d45'}},
+        y:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'},min:0,max:5}
+      }
+    }
+  });
+}
+
+function renderZoneTab(zones, draws) {
+  const total = draws.length * 5;
+  document.getElementById('zoneList').innerHTML = zones.map((z,i) => {
+    const pct = (z.count / total * 100).toFixed(1);
+    const colors = ['#22d3ee','#a78bfa','#34d399','#fbbf24'];
+    return `<div class="zone-row">
+      <span class="zone-label">${z.label}</span>
+      <div class="zone-bar-wrap"><div class="zone-bar" style="width:${pct}%;background:${colors[i]}"></div></div>
+      <span class="zone-pct" style="color:${colors[i]}">${pct}%</span>
+      <span style="font-size:11px;color:var(--text3);min-width:50px">${z.count}次</span>
+    </div>`;
+  }).join('');
+
+  // Span stats
+  const spans = draws.map(d => drawSpan(d.numbers));
+  const avgSpan = (spans.reduce((a,b)=>a+b,0)/spans.length).toFixed(1);
+  const maxSpan = Math.max(...spans);
+  const minSpan = Math.min(...spans);
+  document.getElementById('spanStats').innerHTML = `
+    <div class="grid-3" style="gap:10px;margin-bottom:10px;">
+      <div class="stat-card"><div class="stat-val" style="color:var(--accent);font-size:22px">${avgSpan}</div><div class="stat-label">平均跨度</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--red);font-size:22px">${maxSpan}</div><div class="stat-label">最大跨度</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--green);font-size:22px">${minSpan}</div><div class="stat-label">最小跨度</div></div>
+    </div>`;
+
+  destroyChart('spanChart');
+  destroyChart('zoneChart');
+  const spanBuckets = {};
+  spans.forEach(s => { const b = Math.floor(s/5)*5; spanBuckets[b] = (spanBuckets[b]||0)+1; });
+  const spanLabels = Object.keys(spanBuckets).sort((a,b)=>+a-+b).map(k=>`${k}-${+k+4}`);
+  charts['spanChart'] = new Chart(document.getElementById('spanChart').getContext('2d'), {
+    type: 'bar',
+    data: { labels: spanLabels, datasets: [{ label:'期數', data: Object.keys(spanBuckets).sort((a,b)=>+a-+b).map(k=>spanBuckets[k]), backgroundColor:'#22d3ee66', borderColor:'#22d3ee', borderWidth:1 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'}},y:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'}}} }
+  });
+
+  const colors2 = ['#22d3ee','#a78bfa','#34d399','#fbbf24'];
+  const recent30 = draws.slice(0,30).reverse();
+  charts['zoneChart'] = new Chart(document.getElementById('zoneChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: recent30.map(d=>d.period),
+      datasets: zones.map((z,i) => ({
+        label: z.label,
+        data: recent30.map(d => d.numbers.filter(n => n >= z.min && n <= z.max).length),
+        borderColor: colors2[i], backgroundColor: colors2[i]+'33', tension:0.3, fill:false, pointRadius:2
+      }))
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94a3b8',font:{size:11}}}}, scales:{x:{ticks:{color:'#4a6280',maxTicksLimit:10},grid:{color:'#1b2d45'}},y:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'},min:0,max:5}} }
+  });
+}
+
+function renderSumTab(draws) {
+  const sums = draws.map(d => drawSum(d.numbers));
+  const avg = (sums.reduce((a,b)=>a+b,0)/sums.length).toFixed(1);
+  const max = Math.max(...sums); const min = Math.min(...sums);
+  const low = sums.filter(s=>s<80).length;
+  const mid = sums.filter(s=>s>=80&&s<=120).length;
+  const high = sums.filter(s=>s>120).length;
+
+  document.getElementById('sumStats').innerHTML = [
+    `<div class="stat-card"><div class="stat-val" style="color:var(--accent)">${avg}</div><div class="stat-label">平均和值</div><div class="stat-sub">理論值 100</div></div>`,
+    `<div class="stat-card"><div class="stat-val" style="color:var(--red)">${max}</div><div class="stat-label">最大和值</div></div>`,
+    `<div class="stat-card"><div class="stat-val" style="color:var(--green)">${min}</div><div class="stat-label">最小和值</div></div>`,
+    `<div class="stat-card"><div class="stat-val" style="color:var(--gold)">${mid}</div><div class="stat-label">中等區(80-120)</div><div class="stat-sub">${(mid/sums.length*100).toFixed(0)}%</div></div>`,
+  ].join('');
+
+  destroyChart('sumTrendChart');
+  destroyChart('sumDistChart');
+  const recent30 = draws.slice(0,30).reverse();
+  charts['sumTrendChart'] = new Chart(document.getElementById('sumTrendChart').getContext('2d'), {
+    type: 'line',
+    data: { labels: recent30.map(d=>d.period), datasets:[{ label:'和值', data: recent30.map(d=>drawSum(d.numbers)), borderColor:'#22d3ee', backgroundColor:'#22d3ee22', tension:0.3, fill:true, pointRadius:3 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#4a6280',maxTicksLimit:10},grid:{color:'#1b2d45'}},y:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'}}} }
+  });
+
+  const buckets = {};
+  sums.forEach(s => { const b = Math.floor(s/10)*10; buckets[b]=(buckets[b]||0)+1; });
+  const bLabels = Object.keys(buckets).sort((a,b)=>+a-+b).map(k=>`${k}~${+k+9}`);
+  charts['sumDistChart'] = new Chart(document.getElementById('sumDistChart').getContext('2d'), {
+    type: 'bar',
+    data: { labels: bLabels, datasets:[{ label:'期數', data: Object.keys(buckets).sort((a,b)=>+a-+b).map(k=>buckets[k]), backgroundColor:'#a78bfa88', borderColor:'#a78bfa', borderWidth:1 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'}},y:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'}}} }
+  });
+}
+
+function renderOETab(draws) {
+  const oeMap = {}, bsMap = {};
+  draws.forEach(d => {
+    const o = drawOdds(d.numbers);
+    const b = drawBig(d.numbers);
+    const ok = `${o}:${5-o}`;
+    const bk = `${b}:${5-b}`;
+    oeMap[ok] = (oeMap[ok]||0)+1;
+    bsMap[bk] = (bsMap[bk]||0)+1;
+  });
+
+  const latest = draws[0];
+  const lo = drawOdds(latest.numbers);
+  const lb = drawBig(latest.numbers);
+  document.getElementById('oeStats').innerHTML = [
+    `<div class="stat-card"><div class="stat-val" style="color:var(--accent)">${lo}:${5-lo}</div><div class="stat-label">最新奇偶比</div></div>`,
+    `<div class="stat-card"><div class="stat-val" style="color:var(--gold)">${lb}:${5-lb}</div><div class="stat-label">最新大小比</div></div>`,
+    `<div class="stat-card"><div class="stat-val" style="color:var(--green);font-size:18px">${Object.entries(oeMap).sort((a,b)=>b[1]-a[1])[0][0]}</div><div class="stat-label">最常見奇偶比</div></div>`,
+    `<div class="stat-card"><div class="stat-val" style="color:var(--accent2);font-size:18px">${Object.entries(bsMap).sort((a,b)=>b[1]-a[1])[0][0]}</div><div class="stat-label">最常見大小比</div></div>`,
+  ].join('');
+
+  destroyChart('oeChart');
+  destroyChart('bsChart');
+  const oeEntries = Object.entries(oeMap).sort((a,b)=>b[1]-a[1]);
+  charts['oeChart'] = new Chart(document.getElementById('oeChart').getContext('2d'), {
+    type: 'bar',
+    data: { labels: oeEntries.map(e=>e[0]), datasets:[{ data: oeEntries.map(e=>e[1]), backgroundColor:['#22d3ee88','#a78bfa88','#34d39988','#fbbf2488','#f8717188'], borderColor:['#22d3ee','#a78bfa','#34d399','#fbbf24','#f87171'], borderWidth:1 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'}},y:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'}}} }
+  });
+  const bsEntries = Object.entries(bsMap).sort((a,b)=>b[1]-a[1]);
+  charts['bsChart'] = new Chart(document.getElementById('bsChart').getContext('2d'), {
+    type: 'bar',
+    data: { labels: bsEntries.map(e=>e[0]), datasets:[{ data: bsEntries.map(e=>e[1]), backgroundColor:['#fbbf2488','#22d3ee88','#a78bfa88','#34d39988','#f8717188'], borderColor:['#fbbf24','#22d3ee','#a78bfa','#34d399','#f87171'], borderWidth:1 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'}},y:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'}}} }
+  });
+
+  const recent20 = draws.slice(0,20);
+  document.getElementById('oeTable').innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr>${['期號','日期','號碼','奇偶比','大小比','和值'].map(h=>`<th style="text-align:left;padding:6px 10px;color:var(--text3);border-bottom:1px solid var(--border)">${h}</th>`).join('')}</tr></thead>
+    <tbody>${recent20.map(d=>{
+      const o=drawOdds(d.numbers),b=drawBig(d.numbers),s=drawSum(d.numbers);
+      return `<tr style="border-bottom:1px solid rgba(27,45,69,.4)">
+        <td style="padding:6px 10px;font-family:'JetBrains Mono',monospace;color:var(--text2)">${d.period}</td>
+        <td style="padding:6px 10px;color:var(--text3)">${d.date}</td>
+        <td style="padding:6px 10px">${d.numbers.map(n=>`<span style="font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;margin-right:3px">${String(n).padStart(2,'0')}</span>`).join('')}</td>
+        <td style="padding:6px 10px;color:${o>=(5-o)?'var(--accent2)':'var(--accent)'}">${o}:${5-o}</td>
+        <td style="padding:6px 10px;color:${b>=(5-b)?'var(--red)':'var(--cold)'}">${b}:${5-b}</td>
+        <td style="padding:6px 10px;font-family:'JetBrains Mono',monospace;color:var(--gold)">${s}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+function renderHeadTailTab(draws, freq) {
+  const headCnt = Array(4).fill(0); // 0x,1x,2x,3x
+  const tailCnt = Array(10).fill(0);
+  for (let n = 1; n <= TOTAL; n++) {
+    const head = Math.floor(n/10);
+    const tail = n % 10;
+    headCnt[head] += freq[n];
+    tailCnt[tail] += freq[n];
+  }
+
+  const headLabels = ['01-09','10-19','20-29','30-39'];
+  const maxH = Math.max(...headCnt);
+  document.getElementById('headGrid').innerHTML = headLabels.map((lbl,i) => `
+    <div class="top-row">
+      <span style="min-width:55px;font-size:13px;font-weight:600;color:var(--accent)">${lbl}</span>
+      <div class="top-bar-w"><div class="top-bar-f" style="width:${headCnt[i]/maxH*100}%;background:var(--accent);"></div></div>
+      <span style="font-size:12px;color:var(--text2);min-width:36px;text-align:right">${headCnt[i]}</span>
+    </div>`).join('');
+
+  const maxT = Math.max(...tailCnt);
+  document.getElementById('tailGrid').innerHTML = Array.from({length:10},(_,i) => `
+    <div class="top-row">
+      <span style="min-width:28px;font-size:13px;font-weight:600;color:var(--accent2)">尾${i}</span>
+      <div class="top-bar-w"><div class="top-bar-f" style="width:${tailCnt[i]/maxT*100}%;background:var(--accent2);"></div></div>
+      <span style="font-size:12px;color:var(--text2);min-width:36px;text-align:right">${tailCnt[i]}</span>
+    </div>`).join('');
+
+  destroyChart('headTailChart');
+  charts['headTailChart'] = new Chart(document.getElementById('headTailChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: Array.from({length:TOTAL},(_,i)=>String(i+1).padStart(2,'0')),
+      datasets: [{
+        label: '出現次數', data: freq.slice(1),
+        backgroundColor: freq.slice(1).map((_,i) => {
+          const t = (i+1) % 10;
+          const c = ['#22d3ee','#a78bfa','#34d399','#fbbf24','#f87171','#22d3ee','#a78bfa','#34d399','#fbbf24','#f87171'];
+          return c[t]+'88';
+        }),
+        borderWidth: 0
+      }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#4a6280',maxTicksLimit:20},grid:{color:'#1b2d45'}},y:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'}}} }
+  });
+}
+
+function renderSuggestions(freq, miss) {
+  const maxF = Math.max(...freq.slice(1));
+  const weights = freq.slice(1).map(c => c / maxF);
+  const missArr = miss.slice(1);
+  const maxM = Math.max(...missArr);
+  const missWeights = missArr.map(m => m / maxM);
+
+  const strategies = [
+    {
+      label: '🔥 策略A：熱門優先',
+      tag: 'tag-hot', tagText: '熱門',
+      gen: () => {
+        const pool = shuffle(freq.slice(1).map((c,i)=>({n:i+1,c})).sort((a,b)=>b.c-a.c).slice(0,15).map(x=>x.n));
+        return pick(pool, 5);
+      }
+    },
+    {
+      label: '❄️ 策略B：冷熱平衡',
+      tag: 'tag-balance', tagText: '平衡',
+      gen: () => {
+        const sorted = freq.slice(1).map((c,i)=>({n:i+1,c})).sort((a,b)=>b.c-a.c);
+        const hot = sorted.slice(0,10).map(x=>x.n);
+        const cold = sorted.slice(-10).map(x=>x.n);
+        return [...pick(hot,3),...pick(cold,2)].sort((a,b)=>a-b);
+      }
+    },
+    {
+      label: '⏳ 策略C：遺漏回補',
+      tag: 'tag-miss', tagText: '遺漏',
+      gen: () => {
+        const pool = shuffle(miss.slice(1).map((m,i)=>({n:i+1,m})).sort((a,b)=>b.m-a.m).slice(0,12).map(x=>x.n));
+        return pick(pool, 5);
+      }
+    },
+    {
+      label: '⚖️ 策略D：奇偶最優(3:2)',
+      tag: 'tag-oe', tagText: '奇偶',
+      gen: () => {
+        const odds = shuffle(Array.from({length:TOTAL},(_,i)=>i+1).filter(n=>n%2!==0));
+        const evens = shuffle(Array.from({length:TOTAL},(_,i)=>i+1).filter(n=>n%2===0));
+        return [...pick(odds,3),...pick(evens,2)].sort((a,b)=>a-b);
+      }
+    },
+    {
+      label: '📐 策略E：區間平衡',
+      tag: 'tag-balance', tagText: '區間',
+      gen: () => {
+        const z1 = shuffle([...Array.from({length:10},(_,i)=>i+1)]);
+        const z2 = shuffle([...Array.from({length:10},(_,i)=>i+11)]);
+        const z3 = shuffle([...Array.from({length:10},(_,i)=>i+21)]);
+        const z4 = shuffle([...Array.from({length:9},(_,i)=>i+31)]);
+        return [pick(z1,1)[0], pick(z2,1)[0], pick(z2,1)[0], pick(z3,1)[0], pick(z4,1)[0]].sort((a,b)=>a-b);
+      }
+    },
+    {
+      label: '📊 策略F：加權隨機',
+      tag: 'tag-stat', tagText: '統計',
+      gen: () => weightedPick(weights, 5)
+    },
+    {
+      label: '🔀 策略G：遺漏+頻率混合',
+      tag: 'tag-miss', tagText: '混合',
+      gen: () => {
+        const combined = freq.slice(1).map((c,i)=>{
+          const w = c/maxF * 0.5 + missWeights[i] * 0.5 + Math.random()*0.2;
+          return {n:i+1, w};
+        }).sort((a,b)=>b.w-a.w);
+        return pick(combined.slice(0,16).map(x=>x.n), 5);
+      }
+    },
+    {
+      label: '💎 策略H：大小均衡(3大2小)',
+      tag: 'tag-oe', tagText: '大小',
+      gen: () => {
+        const big = shuffle(Array.from({length:19},(_,i)=>i+21));
+        const small = shuffle(Array.from({length:20},(_,i)=>i+1));
+        return [...pick(big,3),...pick(small,2)].sort((a,b)=>a-b);
+      }
+    },
+    {
+      label: '🎯 策略I：和值中位(80-120)',
+      tag: 'tag-stat', tagText: '和值',
+      gen: () => {
+        for (let t = 0; t < 100; t++) {
+          const nums = pick(Array.from({length:TOTAL},(_,i)=>i+1), 5);
+          const s = drawSum(nums);
+          if (s >= 80 && s <= 120) return nums;
+        }
+        return pick(Array.from({length:TOTAL},(_,i)=>i+1), 5);
+      }
+    },
+    {
+      label: '✨ 策略J：全方位加權',
+      tag: 'tag-balance', tagText: '綜合',
+      gen: () => {
+        const all = Array.from({length:TOTAL},(_,i)=>i+1).map(n => ({
+          n, w: freq[n]/maxF * 0.4 + miss[n]/maxM * 0.3 + Math.random()*0.3
+        })).sort((a,b)=>b.w-a.w);
+        return pick(all.slice(0,18).map(x=>x.n), 5);
+      }
+    },
+  ];
+
+  document.getElementById('suggestList').innerHTML = strategies.map((s,i) => {
+    const nums = s.gen();
+    return `<div class="sug-group">
+      <div class="sug-header">
+        <div class="sug-label">${s.label} <span class="sug-tag ${s.tag}">${s.tagText}</span></div>
+        <div style="font-size:11px;color:var(--text3)">和值 ${drawSum(nums)} · 奇偶 ${drawOdds(nums)}:${5-drawOdds(nums)}</div>
+      </div>
+      <div class="sug-balls">${nums.map(n => ball(n)).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function regenSuggestions() {
+  const freq = computeFreq(DRAW_DATA);
+  const miss = computeMissing(DRAW_DATA);
+  renderSuggestions(freq, miss);
+}
+
+function renderHistory() {
+  const n = parseInt(document.getElementById('histCount').value);
+  const slice = DRAW_DATA.slice(0, n);
+  document.getElementById('histBody').innerHTML = slice.map(d => {
+    const s = drawSum(d.numbers);
+    const o = drawOdds(d.numbers);
+    const b = drawBig(d.numbers);
+    const sp = drawSpan(d.numbers);
+    return `<tr>
+      <td class="hist-period">${d.period}</td>
+      <td class="hist-date">${d.date}</td>
+      <td><div class="hist-balls">${d.numbers.map(n=>ball(n,'ball-sm')).join('')}</div></td>
+      <td>${s}</td>
+      <td>${o}:${5-o}</td>
+      <td>${b}:${5-b}</td>
+      <td>${sp}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ===== TABS =====
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-' + id).classList.add('active');
+}
+
+// ===== RENDER ALL =====
+function renderAll() {
+  const freq     = computeFreq(DRAW_DATA);
+  const miss     = computeMissing(DRAW_DATA);
+  const maxMiss  = computeMaxMissing(DRAW_DATA);
+  const streaks  = computeStreaks(DRAW_DATA);
+  const zones    = computeZones(DRAW_DATA);
+
+  renderLatest(DRAW_DATA[0]);
+  renderQuickStats(DRAW_DATA, freq);
+  renderFreqTab(freq, DRAW_DATA);
+  renderMissingTab(miss, maxMiss);
+  renderStreakTab(streaks, DRAW_DATA);
+  renderZoneTab(zones, DRAW_DATA);
+  renderSumTab(DRAW_DATA);
+  renderOETab(DRAW_DATA);
+  renderHeadTailTab(DRAW_DATA, freq);
+  renderSuggestions(freq, miss);
+  renderHistory();
+}
+
+// regenSuggestions 需要用最新資料
+function regenSuggestions() {
+  const freq = computeFreq(DRAW_DATA);
+  const miss = computeMissing(DRAW_DATA);
+  renderSuggestions(freq, miss);
+}
+
+// ===== INIT：從 Google Sheets CSV 抓資料 =====
+async function init() {
+  const dot    = document.getElementById('statusDot');
+  const status = document.getElementById('statusText');
+
+  dot.style.background = '#fbbf24'; // 黃色：載入中
+  dot.style.animation  = 'none';
+  status.textContent   = '正在從 Google Sheets 載入資料...';
+
+  try {
+    const url  = sheetCSVUrl();
+    // 加 timestamp 避免瀏覽器 cache 讀到舊資料
+    const resp = await fetch(url + '&t=' + Date.now());
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const csv  = await resp.text();
+    DRAW_DATA  = parseCSV(csv);
+
+    if (DRAW_DATA.length === 0) throw new Error('解析後無有效資料，請確認 Sheets 格式與分享權限');
+
+    renderAll();
+
+    document.getElementById('loadingState').style.display  = 'none';
+    document.getElementById('mainContent').style.display   = 'block';
+    dot.style.background  = '#34d399';
+    dot.style.animation   = 'pulse 2s infinite';
+    status.textContent    = `已載入 ${DRAW_DATA.length} 期資料（最新：第 ${DRAW_DATA[0].period} 期）`;
+
+  } catch (err) {
+    console.error(err);
+    dot.style.background = '#f87171'; // 紅色：錯誤
+    dot.style.animation  = 'none';
+    status.textContent   = '資料載入失敗';
+
+    document.getElementById('loadingState').innerHTML = `
+      <div style="text-align:center;padding:60px 20px;">
+        <div style="font-size:40px;margin-bottom:16px;">⚠️</div>
+        <div style="font-size:16px;font-weight:600;color:#f87171;margin-bottom:10px;">無法載入資料</div>
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:8px;">${err.message}</div>
+        <div style="font-size:12px;color:#4a6280;margin-bottom:20px;line-height:1.8;">
+          請確認 Google Sheets 已設定為「知道連結的人可以檢視」<br>
+          試算表 ID：${SPREADSHEET_ID}<br>
+          工作表名稱：${SHEET_NAME}
+        </div>
+        <button onclick="init()" style="background:rgba(34,211,238,.15);border:1px solid rgba(34,211,238,.3);
+          color:#22d3ee;border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer;">
+          🔄 重新載入
+        </button>
+      </div>`;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
