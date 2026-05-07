@@ -1042,105 +1042,109 @@ function renderHeadTailTab(draws, freq) {
 }
 
 function renderSuggestions(freq, miss) {
-  const maxF = Math.max(...freq.slice(1));
-  const weights = freq.slice(1).map(c => c / maxF);
-  const missArr = miss.slice(1);
-  const maxM = Math.max(...missArr);
-  const missWeights = missArr.map(m => m / maxM);
+  const all = Array.from({length:TOTAL},(_,i)=>i+1);
+
+  // 近N期高頻 Top K 號碼池
+  function nearHotPool(k, top) {
+    const h = DRAW_DATA.slice(0, k);
+    const f = Array(TOTAL+1).fill(0);
+    h.forEach(d => d.numbers.forEach(x => f[x]++));
+    return [...all].sort((a,b)=>f[b]-f[a]).slice(0, top);
+  }
+
+  // 反近K期未出現的號碼池
+  function antiPool(k) {
+    const recent = new Set(DRAW_DATA.slice(0,k).flatMap(d=>d.numbers));
+    const pool = all.filter(n => !recent.has(n));
+    return pool.length >= 5 ? pool : all;
+  }
+
+  // 從池中篩選跨度範圍
+  function spanPick(pool, lo, hi) {
+    for (let t = 0; t < 500; t++) {
+      const n = pick(pool, 5);
+      if (n[4]-n[0] >= lo && n[4]-n[0] <= hi) return n;
+    }
+    return pick(pool, 5);
+  }
+
+  // 從池中篩選奇偶比
+  function oePick(pool, odd, even) {
+    const o = pool.filter(n=>n%2!==0), e = pool.filter(n=>n%2===0);
+    return (o.length>=odd && e.length>=even)
+      ? [...pick(o,odd),...pick(e,even)].sort((a,b)=>a-b)
+      : pick(pool, 5);
+  }
 
   const strategies = [
+    // 🏆 新冠軍：近3期高頻T15 + 跨度10~20（vs純隨機 4.42x）
     {
-      label: '🔥 策略A：熱門優先',
-      tag: 'tag-hot', tagText: '熱門',
-      gen: () => {
-        const pool = shuffle(freq.slice(1).map((c,i)=>({n:i+1,c})).sort((a,b)=>b.c-a.c).slice(0,15).map(x=>x.n));
-        return pick(pool, 5);
-      }
+      label: '🏆 策略A：近3期高頻T15＋跨度10~20',
+      tag: 'tag-hot', tagText: '回測冠軍 4.42x',
+      gen: () => spanPick(nearHotPool(3, 15), 10, 20)
     },
+    // 🥈 近2期高頻T15 + 跨度10~20（3.29x）
     {
-      label: '❄️ 策略B：冷熱平衡',
-      tag: 'tag-balance', tagText: '平衡',
-      gen: () => {
-        const sorted = freq.slice(1).map((c,i)=>({n:i+1,c})).sort((a,b)=>b.c-a.c);
-        const hot = sorted.slice(0,10).map(x=>x.n);
-        const cold = sorted.slice(-10).map(x=>x.n);
-        return [...pick(hot,3),...pick(cold,2)].sort((a,b)=>a-b);
-      }
+      label: '🥈 策略B：近2期高頻T15＋跨度10~20',
+      tag: 'tag-hot', tagText: '3.29x',
+      gen: () => spanPick(nearHotPool(2, 15), 10, 20)
     },
+    // 🥉 反近5期 + 奇3偶2（3.21x）
     {
-      label: '⏳ 策略C：遺漏回補',
-      tag: 'tag-miss', tagText: '遺漏',
-      gen: () => {
-        const pool = shuffle(miss.slice(1).map((m,i)=>({n:i+1,m})).sort((a,b)=>b.m-a.m).slice(0,12).map(x=>x.n));
-        return pick(pool, 5);
-      }
+      label: '🥉 策略C：反近5期＋奇3偶2',
+      tag: 'tag-oe', tagText: '3.21x',
+      gen: () => oePick(antiPool(5), 3, 2)
     },
+    // 4th 近5期高頻T20 + 跨度10~20（2.50x）
     {
-      label: '⚖️ 策略D：奇偶最優(3:2)',
-      tag: 'tag-oe', tagText: '奇偶',
-      gen: () => {
-        const odds = shuffle(Array.from({length:TOTAL},(_,i)=>i+1).filter(n=>n%2!==0));
-        const evens = shuffle(Array.from({length:TOTAL},(_,i)=>i+1).filter(n=>n%2===0));
-        return [...pick(odds,3),...pick(evens,2)].sort((a,b)=>a-b);
-      }
+      label: '4️⃣ 策略D：近5期高頻T20＋跨度10~20',
+      tag: 'tag-hot', tagText: '2.50x',
+      gen: () => spanPick(nearHotPool(5, 20), 10, 20)
     },
+    // 5th 反近5期 + 跨度10~20 + 奇3偶2（三重條件 2.33x）
     {
-      label: '📐 策略E：區間平衡',
-      tag: 'tag-balance', tagText: '區間',
+      label: '5️⃣ 策略E：反近5期＋跨10~20＋奇3偶2',
+      tag: 'tag-oe', tagText: '2.33x',
       gen: () => {
-        const z1 = shuffle([...Array.from({length:10},(_,i)=>i+1)]);
-        const z2 = shuffle([...Array.from({length:10},(_,i)=>i+11)]);
-        const z3 = shuffle([...Array.from({length:10},(_,i)=>i+21)]);
-        const z4 = shuffle([...Array.from({length:9},(_,i)=>i+31)]);
-        return [pick(z1,1)[0], pick(z2,1)[0], pick(z2,1)[0], pick(z3,1)[0], pick(z4,1)[0]].sort((a,b)=>a-b);
-      }
-    },
-    {
-      label: '📊 策略F：加權隨機',
-      tag: 'tag-stat', tagText: '統計',
-      gen: () => weightedPick(weights, 5)
-    },
-    {
-      label: '🔀 策略G：遺漏+頻率混合',
-      tag: 'tag-miss', tagText: '混合',
-      gen: () => {
-        const combined = freq.slice(1).map((c,i)=>{
-          const w = c/maxF * 0.5 + missWeights[i] * 0.5 + Math.random()*0.2;
-          return {n:i+1, w};
-        }).sort((a,b)=>b.w-a.w);
-        return pick(combined.slice(0,16).map(x=>x.n), 5);
-      }
-    },
-    {
-      label: '💎 策略H：大小均衡(3大2小)',
-      tag: 'tag-oe', tagText: '大小',
-      gen: () => {
-        const big = shuffle(Array.from({length:19},(_,i)=>i+21));
-        const small = shuffle(Array.from({length:20},(_,i)=>i+1));
-        return [...pick(big,3),...pick(small,2)].sort((a,b)=>a-b);
-      }
-    },
-    {
-      label: '🎯 策略I：和值中位(80-120)',
-      tag: 'tag-stat', tagText: '和值',
-      gen: () => {
-        for (let t = 0; t < 100; t++) {
-          const nums = pick(Array.from({length:TOTAL},(_,i)=>i+1), 5);
-          const s = drawSum(nums);
-          if (s >= 80 && s <= 120) return nums;
+        const pool = antiPool(5);
+        for (let t = 0; t < 400; t++) {
+          const o = pool.filter(n=>n%2!==0), e = pool.filter(n=>n%2===0);
+          if (o.length < 3 || e.length < 2) break;
+          const n = [...pick(o,3),...pick(e,2)].sort((a,b)=>a-b);
+          if (n[4]-n[0] >= 10 && n[4]-n[0] <= 20) return n;
         }
-        return pick(Array.from({length:TOTAL},(_,i)=>i+1), 5);
+        return oePick(pool, 3, 2);
       }
     },
+    // 6th 反近6期 + 奇3偶2（2.25x）
     {
-      label: '✨ 策略J：全方位加權',
-      tag: 'tag-balance', tagText: '綜合',
-      gen: () => {
-        const all = Array.from({length:TOTAL},(_,i)=>i+1).map(n => ({
-          n, w: freq[n]/maxF * 0.4 + miss[n]/maxM * 0.3 + Math.random()*0.3
-        })).sort((a,b)=>b.w-a.w);
-        return pick(all.slice(0,18).map(x=>x.n), 5);
-      }
+      label: '6️⃣ 策略F：反近6期＋奇3偶2',
+      tag: 'tag-oe', tagText: '2.25x',
+      gen: () => oePick(antiPool(6), 3, 2)
+    },
+    // 7th 近3期高頻T20 + 跨度14~24（2.17x）
+    {
+      label: '7️⃣ 策略G：近3期高頻T20＋跨度14~24',
+      tag: 'tag-hot', tagText: '2.17x',
+      gen: () => spanPick(nearHotPool(3, 20), 14, 24)
+    },
+    // 8th 近3期高頻T20 + 跨度12~22（2.00x）
+    {
+      label: '8️⃣ 策略H：近3期高頻T20＋跨度12~22',
+      tag: 'tag-hot', tagText: '2.00x',
+      gen: () => spanPick(nearHotPool(3, 20), 12, 22)
+    },
+    // 9th 反近3期 + 奇3偶2（1.79x）
+    {
+      label: '9️⃣ 策略I：反近3期＋奇3偶2',
+      tag: 'tag-oe', tagText: '1.79x',
+      gen: () => oePick(antiPool(3), 3, 2)
+    },
+    // 10th 反近4期 + 奇3偶2（1.71x）
+    {
+      label: '🔟 策略J：反近4期＋奇3偶2',
+      tag: 'tag-oe', tagText: '1.71x',
+      gen: () => oePick(antiPool(4), 3, 2)
     },
   ];
 
@@ -1149,7 +1153,7 @@ function renderSuggestions(freq, miss) {
     return `<div class="sug-group">
       <div class="sug-header">
         <div class="sug-label">${s.label} <span class="sug-tag ${s.tag}">${s.tagText}</span></div>
-        <div style="font-size:11px;color:var(--text3)">和值 ${drawSum(nums)} · 奇偶 ${drawOdds(nums)}:${5-drawOdds(nums)}</div>
+        <div style="font-size:11px;color:var(--text3)">和值 ${drawSum(nums)} · 奇偶 ${drawOdds(nums)}:${5-drawOdds(nums)} · 跨度 ${drawSpan(nums)}</div>
       </div>
       <div class="sug-balls">${nums.map(n => ball(n)).join('')}</div>
     </div>`;
@@ -1219,57 +1223,49 @@ function regenSuggestions() {
 
 // ===== BACKTEST =====
 
-// 策略定義（deterministic gen，每次呼叫給定 freq/miss 都產生一組號碼）
-function getStrategies(freq, miss) {
-  const maxF = Math.max(...freq.slice(1));
-  const weights = freq.slice(1).map(c => c / maxF);
-  const missArr = miss.slice(1);
-  const maxM = Math.max(...missArr) || 1;
-  const missWeights = missArr.map(m => m / maxM);
+// 策略定義（hist = 該期開獎前的歷史資料陣列）
+function getStrategies(hist) {
+  const all = Array.from({length:TOTAL},(_,i)=>i+1);
+
+  function nearHotPool(k, top) {
+    const f=Array(TOTAL+1).fill(0);
+    hist.slice(0,k).forEach(d=>d.numbers.forEach(x=>f[x]++));
+    return [...all].sort((a,b)=>f[b]-f[a]).slice(0,top);
+  }
+  function antiPool(k) {
+    const recent=new Set(hist.slice(0,k).flatMap(d=>d.numbers));
+    const pool=all.filter(n=>!recent.has(n));
+    return pool.length>=5?pool:all;
+  }
+  function spanPick(pool,lo,hi) {
+    for(let t=0;t<500;t++){const n=pick(pool,5);if(n[4]-n[0]>=lo&&n[4]-n[0]<=hi)return n;}
+    return pick(pool,5);
+  }
+  function oePick(pool,odd,even) {
+    const o=pool.filter(n=>n%2!==0),e=pool.filter(n=>n%2===0);
+    return (o.length>=odd&&e.length>=even)?[...pick(o,odd),...pick(e,even)].sort((a,b)=>a-b):pick(pool,5);
+  }
 
   return [
-    { id:'A', label:'A 熱門優先', gen: () => {
-        const pool = shuffle(freq.slice(1).map((c,i)=>({n:i+1,c})).sort((a,b)=>b.c-a.c).slice(0,15).map(x=>x.n));
-        return pick(pool, 5);
+    {id:'A',label:'A 近3熱T15+跨10~20',   gen:()=>spanPick(nearHotPool(3,15),10,20)},
+    {id:'B',label:'B 近2熱T15+跨10~20',   gen:()=>spanPick(nearHotPool(2,15),10,20)},
+    {id:'C',label:'C 反近5+奇3偶2',       gen:()=>oePick(antiPool(5),3,2)},
+    {id:'D',label:'D 近5熱T20+跨10~20',   gen:()=>spanPick(nearHotPool(5,20),10,20)},
+    {id:'E',label:'E 反近5+跨10~20+奇3偶2',gen:()=>{
+      const p=antiPool(5);
+      for(let t=0;t<400;t++){
+        const o=p.filter(n=>n%2!==0),e=p.filter(n=>n%2===0);
+        if(o.length<3||e.length<2)break;
+        const n=[...pick(o,3),...pick(e,2)].sort((a,b)=>a-b);
+        if(n[4]-n[0]>=10&&n[4]-n[0]<=20)return n;
+      }
+      return oePick(p,3,2);
     }},
-    { id:'B', label:'B 冷熱平衡', gen: () => {
-        const sorted = freq.slice(1).map((c,i)=>({n:i+1,c})).sort((a,b)=>b.c-a.c);
-        return [...pick(sorted.slice(0,10).map(x=>x.n),3), ...pick(sorted.slice(-10).map(x=>x.n),2)].sort((a,b)=>a-b);
-    }},
-    { id:'C', label:'C 遺漏回補', gen: () => {
-        const pool = shuffle(miss.slice(1).map((m,i)=>({n:i+1,m})).sort((a,b)=>b.m-a.m).slice(0,12).map(x=>x.n));
-        return pick(pool, 5);
-    }},
-    { id:'D', label:'D 奇偶3:2', gen: () => {
-        const odds = shuffle(Array.from({length:TOTAL},(_,i)=>i+1).filter(n=>n%2!==0));
-        const evens = shuffle(Array.from({length:TOTAL},(_,i)=>i+1).filter(n=>n%2===0));
-        return [...pick(odds,3),...pick(evens,2)].sort((a,b)=>a-b);
-    }},
-    { id:'E', label:'E 區間平衡', gen: () => {
-        const z1=shuffle(Array.from({length:10},(_,i)=>i+1));
-        const z2=shuffle(Array.from({length:10},(_,i)=>i+11));
-        const z3=shuffle(Array.from({length:10},(_,i)=>i+21));
-        const z4=shuffle(Array.from({length:9},(_,i)=>i+31));
-        return [pick(z1,1)[0],pick(z2,1)[0],pick(z2,1)[0],pick(z3,1)[0],pick(z4,1)[0]].sort((a,b)=>a-b);
-    }},
-    { id:'F', label:'F 加權隨機', gen: () => weightedPick(weights, 5) },
-    { id:'G', label:'G 遺漏+頻率', gen: () => {
-        const combined = freq.slice(1).map((c,i)=>({n:i+1, w:c/maxF*0.5+missWeights[i]*0.5+Math.random()*0.2})).sort((a,b)=>b.w-a.w);
-        return pick(combined.slice(0,16).map(x=>x.n), 5);
-    }},
-    { id:'H', label:'H 大小3大2小', gen: () => {
-        const big=shuffle(Array.from({length:19},(_,i)=>i+21));
-        const small=shuffle(Array.from({length:20},(_,i)=>i+1));
-        return [...pick(big,3),...pick(small,2)].sort((a,b)=>a-b);
-    }},
-    { id:'I', label:'I 和值中位', gen: () => {
-        for(let t=0;t<100;t++){const nums=pick(Array.from({length:TOTAL},(_,i)=>i+1),5);if(drawSum(nums)>=80&&drawSum(nums)<=120)return nums;}
-        return pick(Array.from({length:TOTAL},(_,i)=>i+1),5);
-    }},
-    { id:'J', label:'J 全方位加權', gen: () => {
-        const all=Array.from({length:TOTAL},(_,i)=>i+1).map(n=>({n,w:freq[n]/maxF*0.4+miss[n]/maxM*0.3+Math.random()*0.3})).sort((a,b)=>b.w-a.w);
-        return pick(all.slice(0,18).map(x=>x.n),5);
-    }},
+    {id:'F',label:'F 反近6+奇3偶2',       gen:()=>oePick(antiPool(6),3,2)},
+    {id:'G',label:'G 近3熱T20+跨14~24',   gen:()=>spanPick(nearHotPool(3,20),14,24)},
+    {id:'H',label:'H 近3熱T20+跨12~22',   gen:()=>spanPick(nearHotPool(3,20),12,22)},
+    {id:'I',label:'I 反近3+奇3偶2',       gen:()=>oePick(antiPool(3),3,2)},
+    {id:'J',label:'J 反近4+奇3偶2',       gen:()=>oePick(antiPool(4),3,2)},
   ];
 }
 
@@ -1320,9 +1316,7 @@ async function runBacktest() {
     await new Promise(r => setTimeout(r, 0));
 
     // 用歷史計算頻率/遺漏
-    const hFreq = computeFreq(history);
-    const hMiss = computeMissing(history);
-    const strategies = getStrategies(hFreq, hMiss);
+    const strategies = getStrategies(history);
 
     const periodBest = { period: testDraw.period, date: testDraw.date, actual: testDraw.numbers, bestHit: 0, bestStrategy: '-' };
     const periodHits = {};
