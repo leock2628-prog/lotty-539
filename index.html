@@ -428,6 +428,76 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text
       </div>
     </div>
 
+    <!-- BACKTEST -->
+    <div class="card" style="margin-top:24px;" id="backtestCard">
+      <div class="card-title" style="justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="icon" style="background:rgba(52,211,153,.12);">🔬</div>
+          策略回測
+        </div>
+        <div style="font-size:11px;color:var(--text3);">用歷史資料模擬各策略命中率</div>
+      </div>
+
+      <!-- 設定列 -->
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:13px;color:var(--text2);">回測期數</span>
+          <select id="btPeriods" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 12px;font-size:13px;">
+            <option value="20">近 20 期</option>
+            <option value="30" selected>近 30 期</option>
+            <option value="50">近 50 期</option>
+            <option value="80">近 80 期</option>
+            <option value="999">全部</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:13px;color:var(--text2);">每期模擬次數</span>
+          <select id="btSims" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 12px;font-size:13px;">
+            <option value="10">10 次</option>
+            <option value="20" selected>20 次</option>
+            <option value="50">50 次</option>
+          </select>
+        </div>
+        <button onclick="runBacktest()" class="regen-btn" style="margin-left:auto;">▶ 開始回測</button>
+      </div>
+
+      <!-- 說明 -->
+      <div style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.8;padding:10px 14px;background:rgba(34,211,238,.04);border:1px solid rgba(34,211,238,.1);border-radius:8px;">
+        💡 <strong style="color:var(--text2)">回測邏輯</strong>：以每期「開獎前的歷史資料」計算統計指標，用各策略生成號碼，對照該期實際開獎結果，統計命中 2、3、4、5 球的次數與比率。<br>
+        ⚠ 每次模擬含隨機成分，結果僅供策略比較參考，非預測依據。
+      </div>
+
+      <!-- 進行中 -->
+      <div id="btRunning" style="display:none;text-align:center;padding:40px;color:var(--text2);">
+        <div class="spinner" style="margin:0 auto 12px;"></div>
+        <div id="btProgress" style="font-size:13px;">準備中...</div>
+      </div>
+
+      <!-- 結果區 -->
+      <div id="btResult" style="display:none;">
+        <!-- 總覽圖表 -->
+        <div class="col-layout" style="margin-bottom:20px;">
+          <div class="card" style="padding:14px;">
+            <div class="card-title" style="font-size:12px;margin-bottom:10px;"><div class="icon" style="background:rgba(52,211,153,.12);">📊</div>命中3球以上 比率</div>
+            <div style="position:relative;height:200px;"><canvas id="btChart1"></canvas></div>
+          </div>
+          <div class="card" style="padding:14px;">
+            <div class="card-title" style="font-size:12px;margin-bottom:10px;"><div class="icon" style="background:rgba(251,191,36,.12);">📈</div>平均命中球數</div>
+            <div style="position:relative;height:200px;"><canvas id="btChart2"></canvas></div>
+          </div>
+        </div>
+        <!-- 總覽表格 -->
+        <div style="overflow-x:auto;margin-bottom:20px;">
+          <table id="btSummaryTable" style="width:100%;border-collapse:collapse;font-size:13px;min-width:700px;"></table>
+        </div>
+        <!-- 各期詳細 -->
+        <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:10px;">各期回測詳細（最佳命中策略）</div>
+        <div style="overflow-x:auto;">
+          <table id="btDetailTable" style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px;"></table>
+        </div>
+      </div>
+    </div>
+
   </div><!-- end mainContent -->
 </div><!-- end container -->
 
@@ -1145,6 +1215,245 @@ function regenSuggestions() {
   const freq = computeFreq(DRAW_DATA);
   const miss = computeMissing(DRAW_DATA);
   renderSuggestions(freq, miss);
+}
+
+// ===== BACKTEST =====
+
+// 策略定義（deterministic gen，每次呼叫給定 freq/miss 都產生一組號碼）
+function getStrategies(freq, miss) {
+  const maxF = Math.max(...freq.slice(1));
+  const weights = freq.slice(1).map(c => c / maxF);
+  const missArr = miss.slice(1);
+  const maxM = Math.max(...missArr) || 1;
+  const missWeights = missArr.map(m => m / maxM);
+
+  return [
+    { id:'A', label:'A 熱門優先', gen: () => {
+        const pool = shuffle(freq.slice(1).map((c,i)=>({n:i+1,c})).sort((a,b)=>b.c-a.c).slice(0,15).map(x=>x.n));
+        return pick(pool, 5);
+    }},
+    { id:'B', label:'B 冷熱平衡', gen: () => {
+        const sorted = freq.slice(1).map((c,i)=>({n:i+1,c})).sort((a,b)=>b.c-a.c);
+        return [...pick(sorted.slice(0,10).map(x=>x.n),3), ...pick(sorted.slice(-10).map(x=>x.n),2)].sort((a,b)=>a-b);
+    }},
+    { id:'C', label:'C 遺漏回補', gen: () => {
+        const pool = shuffle(miss.slice(1).map((m,i)=>({n:i+1,m})).sort((a,b)=>b.m-a.m).slice(0,12).map(x=>x.n));
+        return pick(pool, 5);
+    }},
+    { id:'D', label:'D 奇偶3:2', gen: () => {
+        const odds = shuffle(Array.from({length:TOTAL},(_,i)=>i+1).filter(n=>n%2!==0));
+        const evens = shuffle(Array.from({length:TOTAL},(_,i)=>i+1).filter(n=>n%2===0));
+        return [...pick(odds,3),...pick(evens,2)].sort((a,b)=>a-b);
+    }},
+    { id:'E', label:'E 區間平衡', gen: () => {
+        const z1=shuffle(Array.from({length:10},(_,i)=>i+1));
+        const z2=shuffle(Array.from({length:10},(_,i)=>i+11));
+        const z3=shuffle(Array.from({length:10},(_,i)=>i+21));
+        const z4=shuffle(Array.from({length:9},(_,i)=>i+31));
+        return [pick(z1,1)[0],pick(z2,1)[0],pick(z2,1)[0],pick(z3,1)[0],pick(z4,1)[0]].sort((a,b)=>a-b);
+    }},
+    { id:'F', label:'F 加權隨機', gen: () => weightedPick(weights, 5) },
+    { id:'G', label:'G 遺漏+頻率', gen: () => {
+        const combined = freq.slice(1).map((c,i)=>({n:i+1, w:c/maxF*0.5+missWeights[i]*0.5+Math.random()*0.2})).sort((a,b)=>b.w-a.w);
+        return pick(combined.slice(0,16).map(x=>x.n), 5);
+    }},
+    { id:'H', label:'H 大小3大2小', gen: () => {
+        const big=shuffle(Array.from({length:19},(_,i)=>i+21));
+        const small=shuffle(Array.from({length:20},(_,i)=>i+1));
+        return [...pick(big,3),...pick(small,2)].sort((a,b)=>a-b);
+    }},
+    { id:'I', label:'I 和值中位', gen: () => {
+        for(let t=0;t<100;t++){const nums=pick(Array.from({length:TOTAL},(_,i)=>i+1),5);if(drawSum(nums)>=80&&drawSum(nums)<=120)return nums;}
+        return pick(Array.from({length:TOTAL},(_,i)=>i+1),5);
+    }},
+    { id:'J', label:'J 全方位加權', gen: () => {
+        const all=Array.from({length:TOTAL},(_,i)=>i+1).map(n=>({n,w:freq[n]/maxF*0.4+miss[n]/maxM*0.3+Math.random()*0.3})).sort((a,b)=>b.w-a.w);
+        return pick(all.slice(0,18).map(x=>x.n),5);
+    }},
+  ];
+}
+
+// 計算兩組號碼的命中數
+function countHits(predicted, actual) {
+  return predicted.filter(n => actual.includes(n)).length;
+}
+
+async function runBacktest() {
+  const nPeriods = parseInt(document.getElementById('btPeriods').value);
+  const nSims    = parseInt(document.getElementById('btSims').value);
+
+  document.getElementById('btResult').style.display  = 'none';
+  document.getElementById('btRunning').style.display = 'block';
+  document.getElementById('btProgress').textContent  = '初始化...';
+
+  // 讓 UI 先更新
+  await new Promise(r => setTimeout(r, 50));
+
+  // 取得要回測的期別（最新 nPeriods 期）
+  const testDraws = DRAW_DATA.slice(0, Math.min(nPeriods, DRAW_DATA.length));
+  // 需要至少30期歷史才能算統計，所以從 DRAW_DATA 的後段取歷史
+  const totalDraws = DRAW_DATA.length;
+
+  // 策略ID列表
+  const STRATEGY_IDS = ['A','B','C','D','E','F','G','H','I','J'];
+  const STRATEGY_LABELS = ['A 熱門優先','B 冷熱平衡','C 遺漏回補','D 奇偶3:2','E 区間平衡','F 加權隨機','G 遺漏+頻率','H 大小3大2小','I 和值中位','J 全方位加權'];
+
+  // 每個策略的統計
+  const stats = {};
+  STRATEGY_IDS.forEach(id => {
+    stats[id] = { hit2:0, hit3:0, hit4:0, hit5:0, totalHits:0, totalSims:0 };
+  });
+
+  // 各期詳細
+  const perPeriod = [];
+
+  for (let i = 0; i < testDraws.length; i++) {
+    const testDraw = testDraws[i];
+    // 找出這期在 DRAW_DATA 中的 index
+    const drawIdx = DRAW_DATA.findIndex(d => d.period === testDraw.period);
+    // 這期「開獎前」的歷史 = drawIdx+1 之後的資料
+    const history = DRAW_DATA.slice(drawIdx + 1);
+    if (history.length < 10) continue; // 歷史太少跳過
+
+    document.getElementById('btProgress').textContent =
+      `回測中... ${i+1}/${testDraws.length} 期（${testDraw.period}）`;
+    await new Promise(r => setTimeout(r, 0));
+
+    // 用歷史計算頻率/遺漏
+    const hFreq = computeFreq(history);
+    const hMiss = computeMissing(history);
+    const strategies = getStrategies(hFreq, hMiss);
+
+    const periodBest = { period: testDraw.period, date: testDraw.date, actual: testDraw.numbers, bestHit: 0, bestStrategy: '-' };
+    const periodHits = {};
+
+    for (const s of strategies) {
+      let maxHitThisSim = 0;
+      let sumHits = 0;
+
+      for (let sim = 0; sim < nSims; sim++) {
+        const predicted = s.gen();
+        const hits = countHits(predicted, testDraw.numbers);
+        sumHits += hits;
+        if (hits >= 2) stats[s.id].hit2++;
+        if (hits >= 3) stats[s.id].hit3++;
+        if (hits >= 4) stats[s.id].hit4++;
+        if (hits >= 5) stats[s.id].hit5++;
+        stats[s.id].totalHits += hits;
+        stats[s.id].totalSims++;
+        if (hits > maxHitThisSim) maxHitThisSim = hits;
+      }
+
+      periodHits[s.id] = { max: maxHitThisSim, avg: sumHits / nSims };
+      if (maxHitThisSim > periodBest.bestHit) {
+        periodBest.bestHit = maxHitThisSim;
+        periodBest.bestStrategy = s.label;
+      }
+    }
+
+    periodBest.hits = periodHits;
+    perPeriod.push(periodBest);
+  }
+
+  document.getElementById('btRunning').style.display = 'none';
+  renderBacktestResult(stats, perPeriod, STRATEGY_IDS, STRATEGY_LABELS, nSims, testDraws.length);
+  document.getElementById('btResult').style.display = 'block';
+}
+
+function renderBacktestResult(stats, perPeriod, ids, labels, nSims, totalPeriods) {
+  // ── 總覽表格
+  const thStyle = 'padding:8px 12px;text-align:left;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);white-space:nowrap;';
+  const tdStyle = 'padding:8px 12px;border-bottom:1px solid rgba(27,45,69,.4);white-space:nowrap;';
+
+  // 排序（以命中3+球率）
+  const sorted = ids.map(id => ({ id, label: labels[ids.indexOf(id)], ...stats[id] }))
+    .sort((a,b) => b.hit3 - a.hit3);
+
+  const summaryHTML = `
+    <thead><tr>
+      <th style="${thStyle}">排名</th>
+      <th style="${thStyle}">策略</th>
+      <th style="${thStyle}">命中2+球</th>
+      <th style="${thStyle}">命中3+球</th>
+      <th style="${thStyle}">命中4+球</th>
+      <th style="${thStyle}">命中5球</th>
+      <th style="${thStyle}">平均命中球數</th>
+    </tr></thead>
+    <tbody>${sorted.map((s,i) => {
+      const total = s.totalSims || 1;
+      const avg = (s.totalHits / total).toFixed(2);
+      const p2 = (s.hit2/total*100).toFixed(1);
+      const p3 = (s.hit3/total*100).toFixed(1);
+      const p4 = (s.hit4/total*100).toFixed(1);
+      const p5 = (s.hit5/total*100).toFixed(1);
+      const rankColor = i===0?'var(--gold)':i===1?'var(--text2)':i===2?'var(--hot)':'var(--text3)';
+      return `<tr style="${i<3?'background:rgba(255,255,255,.02)':''}">
+        <td style="${tdStyle}font-weight:700;color:${rankColor}">${i+1}</td>
+        <td style="${tdStyle}font-weight:600;color:var(--text)">${s.label}</td>
+        <td style="${tdStyle}color:var(--text2)">${p2}%</td>
+        <td style="${tdStyle}font-weight:600;color:${parseFloat(p3)>15?'var(--green)':parseFloat(p3)>8?'var(--gold)':'var(--text2)'}">${p3}%</td>
+        <td style="${tdStyle}color:var(--accent2)">${p4}%</td>
+        <td style="${tdStyle}color:var(--red)">${p5}%</td>
+        <td style="${tdStyle}font-family:'JetBrains Mono',monospace;color:var(--accent)">${avg}</td>
+      </tr>`;
+    }).join('')}</tbody>`;
+  document.getElementById('btSummaryTable').innerHTML = summaryHTML;
+
+  // ── 圖表
+  destroyChart('btChart1');
+  destroyChart('btChart2');
+
+  const chartLabels = sorted.map(s => s.label.split(' ')[0]); // 只取 A B C...
+  const colors = ['#34d399','#22d3ee','#a78bfa','#fbbf24','#fb923c','#f87171','#60a5fa','#e879f9','#4ade80','#facc15'];
+
+  charts['btChart1'] = new Chart(document.getElementById('btChart1').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: chartLabels,
+      datasets: [{
+        label: '命中3+球率%',
+        data: sorted.map(s => parseFloat((s.hit3/s.totalSims*100).toFixed(1))),
+        backgroundColor: colors.map(c=>c+'bb'), borderColor: colors, borderWidth: 1
+      }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#94a3b8'}},y:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'},min:0}} }
+  });
+
+  charts['btChart2'] = new Chart(document.getElementById('btChart2').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: chartLabels,
+      datasets: [{
+        label: '平均命中球數',
+        data: sorted.map(s => parseFloat((s.totalHits/s.totalSims).toFixed(2))),
+        backgroundColor: colors.map(c=>c+'99'), borderColor: colors, borderWidth: 1
+      }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#94a3b8'}},y:{ticks:{color:'#4a6280'},grid:{color:'#1b2d45'},min:0}} }
+  });
+
+  // ── 各期詳細
+  const detailHTML = `
+    <thead><tr>
+      <th style="${thStyle}">期號</th>
+      <th style="${thStyle}">日期</th>
+      <th style="${thStyle}">實際開獎</th>
+      <th style="${thStyle}">最佳策略</th>
+      <th style="${thStyle}">最高命中</th>
+    </tr></thead>
+    <tbody>${perPeriod.map(p => {
+      const hitColor = p.bestHit>=4?'var(--red)':p.bestHit>=3?'var(--gold)':p.bestHit>=2?'var(--green)':'var(--text3)';
+      return `<tr style="border-bottom:1px solid rgba(27,45,69,.4)">
+        <td style="${tdStyle}font-family:'JetBrains Mono',monospace;color:var(--text2)">${p.period}</td>
+        <td style="${tdStyle}color:var(--text3)">${p.date}</td>
+        <td style="${tdStyle}">${p.actual.map(n=>`<span style="font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 6px;margin-right:3px">${String(n).padStart(2,'0')}</span>`).join('')}</td>
+        <td style="${tdStyle}color:var(--accent2)">${p.bestStrategy}</td>
+        <td style="${tdStyle}font-weight:700;font-size:15px;font-family:'JetBrains Mono',monospace;color:${hitColor}">${p.bestHit} 球</td>
+      </tr>`;
+    }).join('')}</tbody>`;
+  document.getElementById('btDetailTable').innerHTML = detailHTML;
 }
 
 // ===== INIT：從快取工作表 CSV 讀取 =====
